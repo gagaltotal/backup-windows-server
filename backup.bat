@@ -23,7 +23,7 @@ set LOG=C:\backup_log.txt
 
 :: CONNECT NAS
 net use %NAS% /delete >nul 2>&1
-net use %NAS% /user:%USERNAS% %PASSNAS% /persistent
+net use %NAS% /user:%USERNAS% %PASSNAS% /persistent:no
 
 if errorlevel 1 (
 echo [ERROR] Gagal konek ke NAS!
