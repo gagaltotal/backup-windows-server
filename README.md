@@ -1,45 +1,52 @@
 # backup-windows-server
 
-Script `backup.bat` melakukan backup folder `C:\Users` ke NAS Synology menggunakan `robocopy`.
+Script `backup.bat` melakukan backup seluruh isi drive `C:\` ke share NAS menggunakan `robocopy`, dengan pengecualian folder sistem utama.
 
 ## Konfigurasi
 
 Edit `backup.bat` dan sesuaikan nilai berikut:
 
 - `NAS` : alamat share NAS, contoh `\\192.168.1.666\backup\backup-windows-server`
-- `USERNAS` : nama pengguna NAS, contoh `nasuser`
-- `PASSNAS` : password NAS, contoh `naspassword`
-- `SOURCE` : folder sumber di Windows, default `C:\Users`
-- `DEST` : lokasi tujuan di NAS, dibangun dari `%NAS%\server2012_users`
-  - contoh hasil akhir: `\\192.168.1.666\backup\backup-windows-server\server2012_users`
+- `USERNAS` : nama pengguna NAS
+- `PASSNAS` : password NAS
+- `SOURCE` : folder sumber di Windows, default `C:\`
+- `DEST` : lokasi tujuan di NAS, dibangun dari `%NAS%\server2012_full`
+  - contoh hasil akhir: `\\192.168.1.666\backup\backup-windows-server\server2012_full`
 - `LOG` : file log backup, default `C:\backup_log.txt`
 
 ## Cara kerja
 
-1. Menghubungkan ke NAS dengan `net use`.
-2. Membuat folder tujuan di NAS jika belum ada.
-3. Menjalankan `robocopy` dengan opsi:
-   - `/E` : salin semua subfolder termasuk kosong
+1. Menghapus koneksi `net use` sebelumnya ke path NAS.
+2. Menghubungkan ke NAS dengan kredensial yang diberikan.
+3. Membuat folder tujuan di NAS jika belum ada.
+4. Menjalankan `robocopy` dari `C:\` ke `%DEST%` dengan opsi:
+   - `/E` : salin semua subfolder, termasuk yang kosong
    - `/Z` : mode restartable
    - `/XO` : lewati file yang lebih tua di tujuan
-   - `/R:2` : mencoba ulang 2 kali pada file yang gagal
-   - `/W:5` : menunggu 5 detik antar percobaan
-   - `/FFT` : gunakan timestamp 2 detik toleransi
-   - `/XA:SH` : kecualikan file tersembunyi dan sistem
-   - `/XD` : kecualikan `All Users`, `Default`, `Default User`, `Public`
+   - `/R:2` : coba ulang 2 kali jika gagal
+   - `/W:5` : tunggu 5 detik antar percobaan
+   - `/FFT` : gunakan toleransi timestamp 2 detik
+   - `/TEE` : tampilkan output ke layar dan log
+   - `/XD` : kecualikan folder sistem yang tidak perlu dibackup
    - `/LOG+:%LOG%` : tambahkan output ke file log
-4. Mencatat waktu mulai dan selesai ke `C:\backup_log.txt`.
-5. Melepaskan koneksi NAS dengan `net use /delete`.
+5. Mencatat waktu mulai dan selesai backup ke file log.
+6. Melepaskan koneksi ke NAS.
 
 ## Penggunaan
 
 - Jalankan `backup.bat` di Windows dengan hak administrator.
-- Pastikan `net use` dan `robocopy` tersedia di sistem.
-- Pastikan share NAS dapat diakses dari mesin Windows.
+- Pastikan `net use` dan `robocopy` tersedia pada mesin Windows.
+- Pastikan share NAS dapat diakses dan kredensial sudah benar.
 
-## Catatan
+## Perhatian
 
-- `backup.bat` menggunakan path Windows (`C:\Users` dan `C:\backup_log.txt`).
-- Pastikan credential NAS sudah benar sebelum menjalankan.
-- Jika ingin mengubah folder tujuan, edit variabel `DEST`.
+- `backup.bat` saat ini mengecualikan folder:
+  - `C:\Windows`
+  - `C:\Program Files`
+  - `C:\Program Files (x86)`
+  - `C:\ProgramData\Microsoft`
+  - `C:\$Recycle.Bin`
+  - `C:\System Volume Information`
+- Jika Anda ingin membackup folder lain, sesuaikan parameter `SOURCE` dan `DEST` di `backup.bat`.
+- Jangan jalankan script ini pada perangkat non-Windows, karena path dan perintah bersifat khusus Windows.
 
