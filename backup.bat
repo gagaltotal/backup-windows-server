@@ -1,4 +1,6 @@
 @echo off
+chcp 65001 >nul
+color 0A
 
 echo ====================================================================================================================
 echo =  ███████╗███████╗██████╗ ██╗   ██╗███████╗██████╗     ██╗    ██╗██╗███╗   ██╗██████╗  ██████╗ ██╗    ██╗███████╗ =
@@ -20,8 +22,8 @@ set PASSNAS=your_password
 :: ================================
 :: SOURCE & DESTINATION
 :: ================================
-set SOURCE=C:\Users
-set DEST=%NAS%\server2012_users
+set SOURCE=C:
+set DEST=%NAS%\server2012_full
 set LOG=C:\backup_log.txt
 
 :: ================================
@@ -30,15 +32,14 @@ set LOG=C:\backup_log.txt
 net use %NAS% /user:%USERNAS% %PASSNAS% /persistent:no
 
 :: ================================
-:: CREATE DEST FOLDER IF NOT EXIST
+:: CREATE DEST FOLDER
 :: ================================
-if not exist "%DEST%" (
-mkdir "%DEST%"
-)
+if not exist "%DEST%" mkdir "%DEST%"
 
 :: ================================
 :: BACKUP START
 :: ================================
+echo Backup started at %date% %time%
 echo Backup started at %date% %time% >> %LOG%
 
 robocopy "%SOURCE%" "%DEST%" ^
@@ -49,9 +50,19 @@ robocopy "%SOURCE%" "%DEST%" ^
 /W:5 ^
 /FFT ^
 /XA:SH ^
-/XD "C:\Users\All Users" "C:\Users\Default" "C:\Users\Default User" "C:\Users\Public" ^
+/TEE ^
+/NP ^
+/XD ^
+"C:\Windows" ^
+"C:\Program Files" ^
+"C:\Program Files (x86)" ^
+"C:\ProgramData\Microsoft" ^
+"C:$Recycle.Bin" ^
+"C:\System Volume Information" ^
 /LOG+:%LOG%
 
+echo.
+echo Backup finished at %date% %time%
 echo Backup finished at %date% %time% >> %LOG%
 echo ================================ >> %LOG%
 
