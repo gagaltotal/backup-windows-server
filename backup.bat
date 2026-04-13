@@ -14,24 +14,31 @@ echo ===========================================================================
 :: ================================
 :: CONFIG NAS LOGIN
 :: ================================
-set NAS=\\192.168.1.666\backup\backup-windows-server
-set USERNAS=your_username
-set PASSNAS=your_password
+set "NAS=\192.168.1.666\backup\backup-windows-server"
+set "USERNAS=your_username"
+set "PASSNAS=your_password"
 
 :: ================================
 :: SOURCE & DESTINATION
 :: ================================
-set SOURCE=C:
-set DEST=%NAS%\server2012_full
-set LOG=C:\backup_log.txt
+set "SOURCE=C:"
+set "DEST=%NAS%\server2012_full"
+set "LOG=C:\backup_log.txt"
 
 :: ================================
-:: CONNECT TO NAS
+:: CONNECT NAS
 :: ================================
-net use %NAS% /user:%USERNAS% %PASSNAS% /persistent:no
+net use %NAS% /delete >nul 2>&1
+net use %NAS% /user:%USERNAS% %PASSNAS% /persistent
+
+if errorlevel 1 (
+echo [ERROR] Gagal konek ke NAS!
+pause
+exit /b
+)
 
 :: ================================
-:: CREATE DEST FOLDER
+:: CREATE DEST
 :: ================================
 if not exist "%DEST%" mkdir "%DEST%"
 
@@ -48,7 +55,7 @@ robocopy "%SOURCE%" "%DEST%" ^
 /R:2 ^
 /W:5 ^
 /FFT ^
-/XA:SH ^
+/XA ^
 /TEE ^
 /NP ^
 /XD ^
@@ -58,7 +65,7 @@ robocopy "%SOURCE%" "%DEST%" ^
 "C:\ProgramData\Microsoft" ^
 "C:$Recycle.Bin" ^
 "C:\System Volume Information" ^
-/LOG+:%LOG%
+/LOG+:"%LOG%"
 
 echo.
 echo Backup finished at %date% %time%
