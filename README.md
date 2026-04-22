@@ -1,96 +1,132 @@
 # backup-windows-server
 
-Script `backup.bat` melakukan backup **seluruh isi drive `C:\`** ke share NAS menggunakan `robocopy`, termasuk XAMPP dan folder aplikasi lainnya, dengan pengecualian hanya untuk folder sistem Windows yang tidak perlu dibackup.
+Script `backup.bat` melakukan backup **seluruh isi drive `C:\`** ke share NAS menggunakan `robocopy`, dengan pengecualian hanya untuk folder sistem Windows dan folder junctions/symlinks yang tidak perlu dibackup.
 
 ## Konfigurasi
 
-Edit `backup.bat` dan sesuaikan nilai berikut:
+Edit `backup.bat` dan sesuaikan nilai berikut di bagian CONFIG:
 
-- `NAS` : alamat share NAS, contoh `\\192.168.1.666\backup\backup-windows-server`
+```batch
+set NAS=\\192.168.1.666\backup\backup-windows-server
+set USERNAS=your_username
+set PASSNAS=your_password
+```
+
+- `NAS` : alamat share NAS
 - `USERNAS` : nama pengguna NAS
-- `PASSNAS` : password NAS
-- `SOURCE` : folder sumber di Windows, default `C:\`
-- `DEST` : lokasi tujuan di NAS, dibangun dari `%NAS%\server2012_full`
-  - contoh hasil akhir: `\\192.168.1.666\backup\backup-windows-server\server2012_full`
-- `LOG` : file log backup, default `C:\backup_log.txt`
+- `PASSNAS` : password NAS (support karakter spesial seperti `!`, gunakan quotes)
+- `DEST` : lokasi tujuan di NAS (default: `%NAS%\server2012_full`)
+- `LOG` : file log backup (default: `C:\backup_log.txt`)
 
-## Cara kerja
+## Cara Kerja
 
-1. Menghapus koneksi `net use` sebelumnya ke path NAS.
-2. Menghubungkan ke NAS dengan kredensial yang diberikan.
-3. Membuat folder tujuan di NAS jika belum ada.
-4. **Menjalankan `robocopy` dari `C:\` ke `%DEST%`** dengan opsi:
+1. **Connect ke NAS** - Menghubungkan ke share NAS dengan kredensial yang diberikan
+2. **Create Destination** - Membuat folder tujuan di NAS jika belum ada
+3. **Robocopy Backup** - Copy semua file dari `C:\` ke NAS dengan opsi:
    - `/E` : salin semua subfolder, termasuk yang kosong
    - `/Z` : mode restartable (resume jika koneksi terputus)
-   - `/XJ` : **skip semua junctions dan symlinks** (PENTING: mencegah loop infinite di Application Data yang bersifat recursive)
-   - `/XO` : lewati file yang lebih tua di tujuan (deduplication)
-   - `/XN` : lewati file yang lebih baru di tujuan
-   - `/XC` : lewati file yang sudah ada dan tidak berubah
    - `/R:2` : coba ulang 2 kali jika gagal
    - `/W:5` : tunggu 5 detik antar percobaan
-   - `/FFT` : gunakan toleransi timestamp 2 detik
-   - `/TEE` : tampilkan output ke layar dan log
-   - `/XD` : kecualikan folder sistem yang tidak perlu dibackup
-   - `/LOG+:%LOG%` : tambahkan output ke file log
-5. **Deduplication Check**: Memeriksa apakah folder besar (XAMPP, Users, ProgramData) sudah ada di NAS untuk menghindari duplikasi.
-6. Mencatat waktu mulai dan selesai backup ke file log.
-7. Melepaskan koneksi ke NAS.
+   - `/FFT` : toleransi timestamp 2 detik (untuk kompatibilitas FAT)
+   - **/XJ** : **skip junctions & symlinks** (PENTING: mencegah infinite loop di Application Data)
+   - `/DCOPY:DA` : copy directory ownership & attributes
+   - `/COPY:DAT` : copy data, attributes, timestamps
+   - `/TEE` : output ke console dan log file
+   - `/XD` : exclude directories tertentu
+   - `/XF` : exclude files tertentu
+4. **Error Handling** - Cek status code robocopy dan report hasilnya
+5. **Disconnect NAS** - Melepaskan koneksi ke NAS
 
-## Folder yang di-backup
+## Folder yang di-Backup
 
-**Termasuk dalam backup:**
-- `C:\xampp` - web server stack XAMPP
-- `C:\Users` - profil pengguna dan aplikasi data (dengan skip junctions)
-- `C:\ProgramData` - data aplikasi (kecuali Microsoft dan junctions)
-- `C:\Program Files` - aplikasi 32-bit dan 64-bit (kecuali Oracle)
-- Semua folder dan file lainnya di `C:\`
+### Termasuk dalam backup:
+- Semua data aplikasi (ProgramData) kecuali Microsoft
+- XAMPP dan web server stack lainnya
+- Users profile dan documents
+- Program Files (aplikasi)
+- Semua folder dan file custom di C:\
 
-**Dikecualikan dari backup:**
-- `C:\Windows` - folder sistem operasi
-- `C:\$Recycle.Bin` - trash bin
-- `C:\System Volume Information` - informasi volume sistem
-- `C:\ProgramData\Microsoft` - data Microsoft (sudah ada di Windows)
-- `C:\Program Files\Common Files\Oracle` - file umum Oracle
-- **Junctions & Symlinks** - skip otomatis dengan `/XJ` untuk mencegah loop (terutama di Application Data)
+### Dikecualikan dari backup:
+- `C:\Windows` - folder sistem operasi (OS files)
+- `C:\Program Files` - aplikasi standar sistem
+- `C:\Program Files (x86)` - aplikasi 32-bit sistem
+- `C:\ProgramData\Microsoft` - data Microsoft system
+- `C:\$Recycle.Bin` - recycle bin
+- `C:\System Volume Information` - informasi sistem
+- **Junctions & Symlinks** - automatically skipped dengan `/XJ`
+  - Mencegah infinite loop di Application Data
+  - Skip semua folder yang berupa link/shortcut
+
+### Files Dikecualikan:
+- `pagefile.sys` - Windows page file
+- `hiberfil.sys` - hibernate file
+- `swapfile.sys` - swap file
+- `thumbs.db` - thumbnail database
 
 ## Penggunaan
 
-- Jalankan `backup.bat` di Windows dengan hak **Administrator**.
-- Pastikan `net use` dan `robocopy` tersedia pada mesin Windows.
-- Pastikan share NAS dapat diakses dan kredensial sudah benar.
-- Koneksi internet/jaringan harus stabil untuk menghindari timeout.
+1. **Edit konfigurasi** - Sesuaikan NAS path, username, dan password
+2. **Jalankan dengan Administrator** - Script memerlukan hak admin
+3. **Monitor log** - Lihat file `C:\backup_log.txt` untuk detail backup
 
-## Fitur Utama
+```batch
+backup.bat
+```
 
-### 1. **Skip Junctions dengan /XJ**
-   - Mencegah loop infinite yang terjadi pada folder dengan junction (seperti Application Data)
-   - Folder recursive yang bersifat link akan di-skip otomatis
+## Robocopy Exit Codes
 
-### 2. **Deduplication Logic**
-   - Menggunakan `/XO /XN /XC` untuk skip file yang sudah ada di NAS
-   - Deduplication check menampilkan folder yang sudah di-backup
+- `0-3` : Success - backup berhasil
+- `4-7` : Warning - beberapa file skip (normal untuk permission denied)
+- `8+` : Error - ada masalah backup
 
-### 3. **Resume Mode**
-   - Menggunakan `/Z` sehingga jika koneksi putus, backup dapat dilanjutkan dari titik terakhir
+## Troubleshooting
 
-### 4. **Logging**
-   - Semua aktivitas backup dicatat ke `C:\backup_log.txt`
-   - Log berisi waktu mulai, selesai, dan daftar file yang di-backup
+### Password dengan karakter spesial
+Gunakan format berikut untuk password dengan `!`, `&`, `|`, dll:
+```batch
+set "PASSNAS=myPassword!@#$%"
+```
+Quotes melindungi karakter spesial agar tidak di-interpret oleh batch.
 
-## Perhatian Penting
+### Koneksi NAS Error
+- Pastikan NAS path benar: `\\IP\share`
+- Test manual di Command Prompt (as Administrator):
+  ```batch
+  net use \\192.168.1.12\backup\backup-windows-server "password" /user:username
+  ```
+- Pastikan username/password benar
+- Pastikan NAS accessible dari network
 
-**Junctions & Symlinks:**
-- Jika Anda memiliki folder custom yang bersifat junction/link, gunakan `/XJ` atau tambahkan ke daftar exclude.
-- Application Data sering kali junction, script ini sudah handle dengan `/XJ`.
+### Infinite Loop / Hang
+Script menggunakan `/XJ` untuk skip junctions, sehingga tidak akan hang.
+Jika masih hang, pastikan:
+- Network connection stabil
+- NAS tidak ada timeout issue
+- Disk space cukup
 
-**Performa:**
-- Backup pertama kali akan memakan waktu lama tergantung ukuran data di `C:\`.
-- Backup berikutnya akan lebih cepat karena hanya sync file yang berubah.
+### File Permission Denied
+Exit code 4-7 dengan beberapa file skip adalah normal untuk:
+- System files (digunakan OS saat ini)
+- Files yang di-lock aplikasi
+- Folder yang memerlukan special permission
 
-**NAS Connection:**
-- Pastikan NAS tidak memutus koneksi saat backup berlangsung.
-- Jika NAS memiliki timeout, pertimbangkan untuk menambah `/R` (retry) atau `/W` (wait time).
+## Performance Tips
 
-**Admin Rights:**
-- Beberapa folder memerlukan hak administrator untuk diakses.
-- Jalankan `backup.bat` dengan `Run as Administrator`.
+- **Backup pertama kali** : Memakan waktu lama (tergantung ukuran data)
+- **Backup berikutnya** : Lebih cepat (hanya sync file yang berubah)
+- **Network speed** : Gunakan network dengan latency rendah
+- **NAS speed** : Pastikan NAS memiliki response time yang baik
+
+## Security Notes
+
+- Password disimpan di plain text di file batch
+- Gunakan strong password (mix of uppercase, lowercase, numbers, symbols)
+- Simpan file backup.bat dengan permission terbatas
+- Pertimbangkan untuk menyimpan password di config terpisah
+
+## Catatan
+
+- Script dirancang untuk **Windows Server 2012 R2** tapi kompatibel dengan Windows versi lainnya
+- Tested dengan robocopy built-in Windows
+- Log file terus di-append, clear secara berkala jika file terlalu besar
+- Untuk production, pertimbangkan scheduling dengan Windows Task Scheduler
