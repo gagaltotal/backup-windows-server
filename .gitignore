@@ -1,0 +1,8 @@
+# Environment variables
+.env
+
+backup_tes.bat
+
+/logs/
+backup.log
+backup.txt
